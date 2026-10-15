@@ -1,3 +1,13 @@
+// P4 - Acueducto: ejercicio de procesos y pipes
+//
+// Hace lo mismo que estos comandos de la shell, pero con fork + dup2 + execlp:
+//   ./generador > numeros.txt
+//   ./dec2rom < numeros.txt | ./rom2dec > vuelta.txt
+//   diff numeros.txt vuelta.txt > /dev/null
+// y al final dice si numeros.txt y vuelta.txt son iguales.
+//
+// Compilar: gcc -Wall -o acueducto acueducto.c
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -96,5 +106,36 @@ int main(void) {
     waitpid(pid_dec2rom, NULL, 0);
     waitpid(pid_rom2dec, NULL, 0);
 
-    return 0;
+    // ---------- PASO 4: diff numeros.txt vuelta.txt > /dev/null ----------
+    pid_t pid_diff = fork();
+    if (pid_diff == -1) {
+        perror("fork diff");
+        exit(1);
+    }
+    if (pid_diff == 0) {
+        // hijo: lo que escriba diff no nos interesa, solo su codigo de salida
+        int fd_null = open("/dev/null", O_WRONLY);
+        if (fd_null == -1) {
+            perror("open /dev/null");
+            exit(1);
+        }
+        dup2(fd_null, STDOUT_FILENO);
+        close(fd_null);
+
+        // diff esta en el PATH, por eso no lleva ./ delante
+        execlp("diff", "diff", "numeros.txt", "vuelta.txt", NULL);
+        perror("execlp diff");
+        exit(1);
+    }
+    int estado;
+    waitpid(pid_diff, &estado, 0);
+
+    // diff termina con 0 si los ficheros son iguales, 1 si son distintos y 2 si hay algun error
+    if (WIFEXITED(estado) && WEXITSTATUS(estado) == 0) {
+        printf("Ambos documentos son idénticos\n");
+        return 0;
+    } else {
+        printf("Hay discrepancia entre documentos\n");
+        return 1;
+    }
 }
