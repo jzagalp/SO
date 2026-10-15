@@ -30,5 +30,28 @@ int main(void) {
     // padre: espero a que generador termine de escribir todos los numeros
     waitpid(pid_generador, NULL, 0);
 
+    // ---------- PASO 2: dec2rom < numeros.txt (de momento sale por pantalla) ----------
+    pid_t pid_dec2rom = fork();
+    if (pid_dec2rom == -1) {
+        perror("fork dec2rom");
+        exit(1);
+    }
+    if (pid_dec2rom == 0) {
+        // hijo: numeros.txt solo hay que leerlo, asi que basta con O_RDONLY
+        // (si pongo O_TRUNC aqui se borra el fichero!)
+        int fd_entrada = open("numeros.txt", O_RDONLY);
+        if (fd_entrada == -1) {
+            perror("open numeros.txt");
+            exit(1);
+        }
+        dup2(fd_entrada, STDIN_FILENO);   // la entrada estandar (0) ahora es el fichero
+        close(fd_entrada);
+
+        execlp("./dec2rom", "dec2rom", NULL);
+        perror("execlp dec2rom");
+        exit(1);
+    }
+    waitpid(pid_dec2rom, NULL, 0);
+
     return 0;
 }
